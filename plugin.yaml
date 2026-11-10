@@ -1,0 +1,99 @@
+name: desktop-inbox
+version: "1.0.0"
+manifest_version: 2
+description: >
+  An Inbox pane for Hermes Desktop. Cron jobs, scripts and webhooks file items (Read, Answer,
+  Decide, Do, or your own types) as Hermes-started Desktop conversations. The pane is a
+  keyboard-driven triage queue with snooze and undo, and it also lists what waits on you
+  elsewhere: chats with a pending question, blocked or triage kanban cards, and failing cron jobs.
+author: Vlad Sergienko
+license: MIT
+homepage: https://github.com/Nj07r/hermes-desktop-inbox
+requires_hermes: ">=0.23.1"
+kind: standalone
+tags: [desktop, inbox, cron, kanban, productivity]
+provides_tools: []
+provides_hooks: []
+python_dependencies: []
+config_schema:
+  user_name:
+    type: str
+    default: ""
+    label: Your name
+    description: How item conversations refer to you. Empty means "the user".
+  reply_style:
+    type: str
+    default: ""
+    label: Reply style
+    description: One extra style rule for Hermes in every item, for example "short, plain words".
+  types:
+    type: dict
+    default: {}
+    label: Item types
+    description: >-
+      Add types or change the built-in ones (read, answer, decide, do). Each key is a type name
+      with optional emoji, label, icon (a codicon name) and how (the rule for Hermes, where
+      {user} is your name). See the README for an example.
+  watched_jobs:
+    type: list
+    default: []
+    label: Watched cron jobs
+    description: Cron job names whose failures show under "Needs you". Empty means every enabled job.
+  empty_title:
+    type: str
+    default: Inbox zero
+    label: Empty pane title
+  empty_message:
+    type: str
+    default: Nothing needs you.
+    label: Empty pane line
+  done_days:
+    type: int
+    default: 7
+    label: Days to keep in Done
+  morning_hour:
+    type: int
+    default: 9
+    label: Snooze "tomorrow" hour
+  evening_hour:
+    type: int
+    default: 20
+    label: Snooze "evening" hour
+  settle_after_minutes:
+    type: int
+    default: 15
+    label: Close items after their card is done (minutes)
+  inbox_dir:
+    type: str
+    default: ""
+    label: Inbox folder
+    description: Folder that groups the item conversations as a Desktop project. Empty means HERMES_HOME/inbox.
+  webhook_enabled:
+    type: bool
+    default: false
+    label: Webhook listener
+    description: Listen on 127.0.0.1 for POST /item and GitHub review requests (POST /github).
+  webhook_port:
+    type: int
+    default: 8788
+    label: Webhook port
+  github_login:
+    type: str
+    default: ""
+    label: GitHub login
+    description: Whose review requests become items. Empty asks the gh CLI once.
+  github_review_notes:
+    type: str
+    default: ""
+    label: Review item notes
+    description: How Hermes handles a review-request item. Empty uses the built-in notes.
+  webhook_token:
+    type: secret
+    env: DESKTOP_INBOX_WEBHOOK_TOKEN
+    label: Webhook token
+    description: 'If set, POST /item needs the header "Authorization: Bearer <token>".'
+  github_webhook_secret:
+    type: secret
+    env: DESKTOP_INBOX_GITHUB_SECRET
+    label: GitHub webhook secret
+    description: If set, POST /github checks the X-Hub-Signature-256 HMAC.

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Short alias for `hermes desktop-inbox`. Optional: link it into your PATH, e.g.
+#   ln -s "$PWD/bin/inbox-item" ~/.local/bin/inbox-item
+exec hermes desktop-inbox "$@"

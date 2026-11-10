@@ -1,0 +1,7 @@
+{
+  "name": "desktop-inbox",
+  "label": "Inbox",
+  "description": "Inbox items, waiting chats, blocked cards and failing cron jobs",
+  "version": "1.0.0",
+  "api": "plugin_api.py"
+}
