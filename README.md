@@ -1,39 +1,58 @@
 # Inbox for Hermes Desktop
 
-An Inbox pane for [Hermes Desktop](https://hermes-agent.nousresearch.com). Your cron jobs,
-scripts and webhooks file **items**. Each item is a normal Desktop conversation that Hermes
-starts, with one clear ask: read this, answer this, decide this, or do this. You open it, reply
-or act, and mark it done. Hermes in that conversation knows what the item is and what to do with
-your reply.
+**One place for your entire swarm.**
 
-The pane also collects what waits for you in other places:
+**[▶ Watch the 60-second demo](docs/demo.mp4)**
 
-- chats that wait for your answer (a pending clarify or approval),
-- kanban cards that are blocked or in triage,
-- cron jobs that failed, or that ran but could not file their item.
+Your Hermes agents work while you sleep: cron jobs, webhooks, kanban workers, subagents. Their
+output lands in many places. A bot chat you never scroll, a card stuck in triage, a job that
+failed without a sound. Inbox gives all of it one place to land, and gives every item one clear
+ask, so that you can close it.
+
+> Every thread you open, you close.
+
+![The Inbox pane](docs/pane.png)
+
+## Why it is different
+
+- **Built for work your agents start.** Most inboxes sort the threads that you start. This one
+  collects what your agents start for you: cron results, webhook events, blocked cards, failed
+  jobs. You do not go looking for the work. The work comes to you.
+- **Every item is a real conversation.** An item is not a notification or a row in a list. It is
+  a Desktop conversation that Hermes starts, with the content and one ask: **Read**, **Answer**,
+  **Decide** or **Do**. Reply in it, tell Hermes to do the task, or give the job feedback. Hermes
+  already knows what the item is and how to handle your reply.
+- **"Needs you" covers the whole swarm.** Chats that wait on your answer (a pending clarify or
+  approval), kanban cards that are blocked or in triage, and cron jobs that failed sit at the top
+  of the pane. Click a failed job and Hermes files a Fix item and starts the diagnosis.
+- **Triage it like email.** `j`/`k` move, `Enter` opens, `e` closes, `s` snoozes, `z` undoes.
+  Every action is instant and has a 5-second Undo.
+- **It closes itself.** An item that started a kanban card closes when the card is done. A
+  snoozed item comes back at its time with a notification.
+- **Yours to shape.** Add item types (a `pay` type with its own icon and rule, for example), set
+  your name, a reply style and the empty-pane text. Every setting is in the Desktop settings form.
+- **No lock-in, no extra database.** Items are normal Hermes sessions. Done means archived. Remove
+  the plugin and every conversation is still in Hermes.
+- **Plays by the rules.** Public Hermes APIs only. `hermes plugins validate` passes with zero
+  warnings. No telemetry, no stored credentials, and no network calls except one optional
+  `gh api user` for the webhook.
 
 ## What it does
 
 - **One conversation per item.** A daily digest does not pile into one long bot chat. Every run
-  is its own thread with its own ask, so you can close it.
+  is its own thread with its own ask.
 - **A triage queue.** Sections: Needs you, Inbox, Snoozed, Done. Every row shows the ask line,
   so you know what an item needs before you open it.
-- **Keyboard first.** `j`/`k` move, `Enter` opens, `e` marks done, `s` then `1`-`4` snoozes,
-  `z` undoes. Every action has a 5-second Undo toast.
 - **Snooze.** Later today, this evening, tomorrow morning, next week, or any time from the CLI.
-  A snoozed item comes back with a notification.
-- **Auto-settle.** An item that started a kanban card closes itself when the card is done.
-- **Failures surface.** A failed cron job shows under "Needs you". One click files a "Fix" item,
-  and Hermes in that item diagnoses the job.
 - **Notifications.** An in-app toast when Hermes has focus, an OS notification when it does not.
-- **Your types and your voice.** Add item types, set your name, a reply style and the empty-pane
-  text in settings.
 - **Optional webhook.** GitHub review requests and any `POST` can file items.
+- **A CLI for scripts and cron jobs.** `hermes desktop-inbox new` files an item from anywhere.
+- **A bundled skill.** Ask Hermes to "wire my morning-brief job to the Inbox", and it does.
 
 ## Install
 
 ```bash
-hermes plugins install desktop-inbox            # from the catalog
+hermes plugins install desktop-inbox            # from the catalog, once listed
 # or, straight from GitHub:
 hermes plugins install Nj07r/hermes-desktop-inbox
 hermes plugins enable desktop-inbox
@@ -229,6 +248,12 @@ python -m unittest discover -s hermes-desktop-inbox/tests   # use the Python tha
 Desktop copies `desktop/plugin.js` when the window reloads. Backend changes to
 `desktop_inbox/` apply on the next pane poll. Changes to `dashboard/plugin_api.py` need a
 gateway restart.
+
+## Credits
+
+The inbox model (settle, snooze, auto-settle, "every thread you open, you close") is inspired by
+the inbox-style sidebar in [T3 Code](https://github.com/pingdotgg/t3code). This plugin brings the
+same idea to the work that your agents start.
 
 ## License
 

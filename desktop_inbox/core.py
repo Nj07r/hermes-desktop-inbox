@@ -183,6 +183,18 @@ def _briefs(ids: list[str]) -> dict[str, dict]:
 # ── cron jobs that failed ────────────────────────────────────────────────
 
 
+def _epoch(value) -> float | None:
+    """A cron timestamp (epoch number or ISO string) as epoch seconds."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 def failed_jobs() -> list[dict]:
     """Watched cron jobs whose last run did not end ok, so failures land in the pane too."""
     data = _read_json(settings.hermes_home() / "cron" / "jobs.json")
@@ -198,12 +210,12 @@ def failed_jobs() -> list[dict]:
         if status and status != "ok":
             out.append({"id": j.get("id"), "name": j.get("name"), "status": status,
                         "error": (j.get("last_error") or j.get("last_delivery_error") or "")[:300],
-                        "at": j.get("last_run_at")})
+                        "at": _epoch(j.get("last_run_at"))})
         elif status == "ok" and (err := _inbox_failure_in_last_output(j.get("id"))):
             # The run succeeded but filing its item did not: the job's final answer contains
             # 'INBOX FAILED: <error>' (see the bundled skill).
             out.append({"id": j.get("id"), "name": j.get("name"), "status": "inbox_failed",
-                        "error": err[:300], "at": j.get("last_run_at")})
+                        "error": err[:300], "at": _epoch(j.get("last_run_at"))})
     return out
 
 
@@ -557,8 +569,9 @@ def file_failure_item(name: str) -> dict:
     if existing:
         return {"ok": True, "already_open": True, "id": existing["id"], "title": existing["title"]}
     user = settings.user_name()
+    when = datetime.fromtimestamp(job["at"]).strftime("%Y-%m-%d %H:%M") if job.get("at") else "an unknown time"
     text = (f"The cron job `{name}` (id {job['id']}) last ended with status `{job['status']}` "
-            f"at {job['at']}:\n\n```\n{job['error']}\n```")
+            f"at {when}:\n\n```\n{job['error']}\n```")
     notes = (f"{user} opened this to get the job fixed. Your one-line reply: what failed, and that you will "
              f"fix it when {user} says go. On the next message, diagnose with `hermes cron list` and "
              f"`hermes cron runs {job['id']}`, fix local config yourself, and ask before anything that needs "

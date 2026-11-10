@@ -69,8 +69,12 @@ function useWaiting() {
 
 // ── formatting ───────────────────────────────────────────────────────────
 
-function ago(ts) {
-  if (!ts) return ''
+// Seconds since the epoch, or an ISO string (cron writes those).
+const secs = ts => (typeof ts === 'string' ? Date.parse(ts) / 1000 : ts)
+
+function ago(value) {
+  const ts = secs(value)
+  if (!ts || Number.isNaN(ts)) return ''
   const s = Math.max(0, Date.now() / 1000 - ts)
   if (s < 60) return 'now'
   if (s < 3600) return `${Math.round(s / 60)}m`
@@ -697,9 +701,16 @@ function InboxPane() {
     className: 'ibx-pane',
     tabIndex: -1,
     onKeyDown,
-    onFocus: () => (hadFocus.current = true),
+    // While the pane holds focus, Desktop's type-to-focus must not send j/k/e/s/z to the
+    // composer. Desktop stands down while a [data-overlay-surface] element exists.
+    onFocus: () => {
+      hadFocus.current = true
+      rootRef.current?.setAttribute('data-overlay-surface', '')
+    },
     onBlur: e => {
-      if (e.relatedTarget && !rootRef.current?.contains(e.relatedTarget)) hadFocus.current = false
+      if (rootRef.current?.contains(e.relatedTarget)) return
+      rootRef.current?.removeAttribute('data-overlay-surface')
+      if (e.relatedTarget) hadFocus.current = false
     },
     children: [
       jsx(ScrollArea, {
@@ -709,7 +720,7 @@ function InboxPane() {
           children: [
             q.isPending && jsx('div', { className: 'ibx-skeleton', children: [0, 1, 2].map(k => jsx('div', {}, k)) }),
             q.data?.ok === false && jsx('div', { className: 'ibx-note', children: `Backend error: ${q.data.error}` }),
-            q.isError && jsx('div', { className: 'ibx-note', children: 'Inbox backend unreachable. Is desktop-inbox enabled (hermes plugins enable desktop-inbox)?' }),
+            q.isError && !q.data && jsx('div', { className: 'ibx-note', children: 'Inbox backend unreachable. Is desktop-inbox enabled (hermes plugins enable desktop-inbox)?' }),
             hook && hook.enabled && hook.ok === false &&
               jsx(Tip, { label: hook.error || 'The webhook listener could not start', children: jsx('div', { className: 'ibx-note', children: `Webhook listener down (port ${hook.port ?? '?'})` }) }),
             attention > 0 &&
