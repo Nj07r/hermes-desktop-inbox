@@ -236,5 +236,16 @@ class WebhookTests(unittest.TestCase):
             self.assertEqual(webhook.status(), {"ok": True, "enabled": False, "running": False})
 
 
+
+class ChildEnvTests(unittest.TestCase):
+    def test_child_never_inherits_yolo_or_session(self):
+        bad = {"HERMES_YOLO_MODE": "1", "HERMES_YOLO": "1", "HERMES_ACP_AUTO_APPROVE": "1",
+               "HERMES_SESSION_ID": "x", "HERMES_CRON_JOB": "y"}
+        with mock.patch.dict(os.environ, bad):
+            env = core._clean_env()
+        for key in bad:
+            self.assertNotIn(key, env)
+        self.assertEqual(env["HERMES_INBOX_ITEM"], "1")
+
 if __name__ == "__main__":
     unittest.main()

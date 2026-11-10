@@ -483,11 +483,16 @@ _For Hermes (how to handle this conversation):_
 Reply now with ONE short line telling {user} what this item needs from them."""
 
 
+# A parent's YOLO or auto-approve mode must never reach the item's `hermes chat`: the item body
+# can come from outside (a webhook payload), and approvals stay with the user.
+_NO_INHERIT = ("HERMES_YOLO", "HERMES_ACP_AUTO_APPROVE")
+
+
 def _clean_env() -> dict:
     env = dict(os.environ)
     for key in list(env):
         # A cron (or any) parent session's identity must not leak into the new conversation.
-        if key.startswith(("HERMES_CRON", "HERMES_SESSION", "HERMES_KANBAN")):
+        if key.startswith(("HERMES_CRON", "HERMES_SESSION", "HERMES_KANBAN") + _NO_INHERIT):
             env.pop(key)
     env["HERMES_INBOX_ITEM"] = "1"
     return env

@@ -215,7 +215,7 @@ payloads are kept in `<inbox folder>/webhook-log/`.
   archive state, the hidden flag on an item's opening message and its first Hermes message. It
   writes its own files (`snooze.json`, `.settled.json`, `.seeds/`, `webhook-log/`) in the inbox
   folder.
-- **Runs** `hermes chat` once per new item (one model turn, to write the ask line),
+- **Runs** `hermes chat` once per new item (one model turn, to write the ask line; it never inherits YOLO or auto-approve mode from its parent),
   `hermes kanban archive` when you archive a card from the pane, and `gh api user` once when the
   webhook needs your GitHub login and `github_login` is empty.
 - **Network**: none of its own. With the webhook on, it listens on 127.0.0.1 only.
