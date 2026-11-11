@@ -3,7 +3,12 @@
 Off by default (setting ``webhook_enabled``). When on, it runs as a daemon thread inside the
 process that serves the pane backend, or standalone with ``hermes desktop-inbox webhook``. It
 binds 127.0.0.1 only; to let GitHub in, put it behind a tunnel (``tailscale funnel <port>``,
-an smee.io forwarder) and set ``github_webhook_secret``.
+an smee.io forwarder).
+
+Every item starts a real ``hermes chat`` turn, so each route needs its own credential:
+``/item`` refuses all posts until ``webhook_token`` is set, ``/github`` until
+``github_webhook_secret`` is set. Requests that carry an ``Origin`` header come from a web page
+and are refused, so a site open in the browser cannot post to the listener.
 
 Routes:
   POST /item?type=do&title=Name&source=webhook   body text becomes the item body
@@ -72,11 +77,12 @@ def _already_open(title_prefix: str) -> dict | None:
 
 def handle_github(payload: bytes, signature: str, event_name: str = "") -> tuple[int, dict]:
     secret = settings.secret("github_webhook_secret")
-    if secret:
-        expected = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-        if not signature or not hmac.compare_digest(expected, signature):
-            _log("github-rejected", payload, "bad signature")
-            return 403, {"ok": False, "error": "bad signature"}
+    if not secret:
+        return 403, {"ok": False, "error": "set github_webhook_secret to accept GitHub events"}
+    expected = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    if not signature or not hmac.compare_digest(expected, signature):
+        _log("github-rejected", payload, "bad signature")
+        return 403, {"ok": False, "error": "bad signature"}
     try:
         event = json.loads(payload or b"{}")
     except Exception:
@@ -122,7 +128,9 @@ def handle_github(payload: bytes, signature: str, event_name: str = "") -> tuple
 
 def handle_item(query: dict, payload: bytes, token: str) -> tuple[int, dict]:
     expected = settings.secret("webhook_token")
-    if expected and not hmac.compare_digest(token or "", expected):
+    if not expected:
+        return 403, {"ok": False, "error": "set webhook_token to accept items"}
+    if not hmac.compare_digest(token or "", expected):
         return 403, {"ok": False, "error": "bad token"}
     kind = (query.get("type") or "do").lower()
     name = (query.get("title") or "").strip()
@@ -167,6 +175,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        if self.headers.get("Origin") is not None:
+            self._send(403, {"ok": False, "error": "browser requests are not accepted"})
+            return
         length = int(self.headers.get("Content-Length") or 0)
         if length > MAX_BODY:
             self._send(413, {"ok": False, "error": "body too large"})
@@ -211,6 +222,9 @@ def ensure_server() -> dict:
         if _server is not None:
             return {"ok": True, "enabled": True, "port": _server.server_address[1], "running": True}
         p = port()
+        if not (settings.secret("webhook_token") or settings.secret("github_webhook_secret")):
+            return {"ok": False, "enabled": True, "port": p, "running": False,
+                    "error": "Set webhook_token or github_webhook_secret first"}
         try:
             srv = ThreadingHTTPServer(("127.0.0.1", p), Handler)
             srv.daemon_threads = True
@@ -230,6 +244,8 @@ def ensure_server() -> dict:
 
 
 def serve_forever() -> None:
+    if not (settings.secret("webhook_token") or settings.secret("github_webhook_secret")):
+        raise SystemExit("desktop-inbox: set webhook_token or github_webhook_secret before starting the listener")
     srv = ThreadingHTTPServer(("127.0.0.1", port()), Handler)
     print(f"desktop-inbox webhook listening on 127.0.0.1:{port()}")
     srv.serve_forever()

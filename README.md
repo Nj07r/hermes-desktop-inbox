@@ -169,8 +169,8 @@ plugins:
 | `webhook_port` | int | `8788` | Port of the webhook listener. |
 | `github_login` | str | `""` | Whose review requests become items. Empty asks `gh api user` once. |
 | `github_review_notes` | str | `""` | Reply notes for review-request items. Empty uses the built-in notes. |
-| `webhook_token` | secret | | `DESKTOP_INBOX_WEBHOOK_TOKEN`. If set, `POST /item` needs `Authorization: Bearer <token>`. |
-| `github_webhook_secret` | secret | | `DESKTOP_INBOX_GITHUB_SECRET`. If set, `POST /github` checks `X-Hub-Signature-256`. |
+| `webhook_token` | secret | | `DESKTOP_INBOX_WEBHOOK_TOKEN`. Required for `POST /item`, which needs `Authorization: Bearer <token>`. |
+| `github_webhook_secret` | secret | | `DESKTOP_INBOX_GITHUB_SECRET`. Required for `POST /github`, which checks `X-Hub-Signature-256`. |
 
 ## CLI
 
@@ -199,12 +199,22 @@ Off by default. With `webhook_enabled: true` the pane backend starts a listener 
 | `POST /github` | Files a Do item when a pull request asks `github_login` for a review. Other events are logged and ignored. |
 | `GET /health` | Returns `{"ok": true}`. |
 
+Each item starts a real `hermes chat` turn, so every route needs its credential. `POST /item`
+refuses all requests until `webhook_token` is set, and `POST /github` until
+`github_webhook_secret` is set. The listener does not start while both are empty. Requests that
+carry an `Origin` header come from a web page and are refused.
+
 ```bash
-curl -d 'The backup finished with 2 warnings.' 'localhost:8788/item?type=read&title=Backup&source=nas'
+curl -H "Authorization: Bearer $DESKTOP_INBOX_WEBHOOK_TOKEN" \
+  -d 'The backup finished with 2 warnings.' 'localhost:8788/item?type=read&title=Backup&source=nas'
 ```
 
-The listener binds to localhost only. To receive GitHub events, put it behind a tunnel (for
-example `tailscale funnel 8788` or an smee.io forwarder) and set `github_webhook_secret`. Raw
+Titles may use letters, digits, spaces and `. , : ! ? # / @ & + ' ( ) [ ] % -` (120 characters
+at most). Other characters are refused.
+
+The listener binds to localhost only. To receive events from outside (for example
+`tailscale funnel 8788` or an smee.io forwarder), set `github_webhook_secret` for GitHub and
+`webhook_token` for `/item` first: a tunnel makes the listener reachable by anyone online. Raw
 payloads are kept in `<inbox folder>/webhook-log/`.
 
 ## What the plugin reads, writes and runs

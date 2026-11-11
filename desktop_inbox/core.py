@@ -78,6 +78,21 @@ def parse_type(title: str, types: dict | None = None) -> str:
     return "read"
 
 
+# Titles reach the model's prompt and show in commands, so they keep to plain text: no quotes,
+# backticks, `$`, `\`, `;`, `|` or `<>` that a shell would act on.
+_TITLE_OK = re.compile(r"[\w .,:!?#/@&+'()\[\]%-]{1,120}")
+
+
+def check_name(name: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        raise SystemExit("inbox: empty title")
+    if not _TITLE_OK.fullmatch(name):
+        raise SystemExit("inbox: title may use letters, digits, spaces and . , : ! ? # / @ & + ' ( ) [ ] % - "
+                         "(max 120 characters)")
+    return name
+
+
 def make_title(kind: str, name: str, when: datetime | None = None) -> str:
     when = when or datetime.now()
     emoji = settings.types()[kind].get("emoji", "")
@@ -478,7 +493,7 @@ def seed_text(kind: str, title: str, source: str, body: str, reply_notes: str) -
 _For Hermes (how to handle this conversation):_
 - This conversation is an item in {user}'s Hermes Inbox, titled "{title}". The content above was prepared by `{source}`; do not repeat it back.
 - Ask type: {spec['label']}. {how}
-- When {user} marks it done ("done", "read", "skip", "clear it"), run `hermes desktop-inbox done "{title}"` with the terminal tool, then confirm in one short line. If only part of it is handled, leave it open and say what is left.{notes}{style_line}
+- When {user} marks it done ("done", "read", "skip", "clear it"), run `hermes desktop-inbox done` (no argument, it finds this conversation) with the terminal tool, then confirm in one short line. If only part of it is handled, leave it open and say what is left.{notes}{style_line}
 
 Reply now with ONE short line telling {user} what this item needs from them."""
 
@@ -532,8 +547,7 @@ def create_item(kind: str, name: str, body: str, source: str = "manual", reply_n
     types = settings.types()
     if kind not in types:
         raise SystemExit(f"inbox: --type must be one of {', '.join(types)}")
-    if not (name or "").strip():
-        raise SystemExit("inbox: empty title")
+    name = check_name(name)
     if not (body or "").strip():
         raise SystemExit("inbox: empty body, nothing to file")
     folder = inbox_dir()
@@ -568,7 +582,7 @@ def file_failure_item(name: str) -> dict:
     job = next((j for j in failed_jobs() if j["name"] == name), None)
     if job is None:
         return {"ok": False, "error": f"{name or 'job'} is not failing"}
-    label = f"Fix {name}"
+    label = "Fix " + re.sub(r"[^\w .:#/@+()-]+", "-", name)[:110]
     prefix = f"{settings.types()['do']['emoji']} {label} ·"
     existing = next((it for it in list_items() if it["title"].startswith(prefix)), None)
     if existing:

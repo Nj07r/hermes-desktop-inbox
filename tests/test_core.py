@@ -127,7 +127,15 @@ class SeedTests(unittest.TestCase):
         self.assertIn("- Style: short, plain words", seed)
         self.assertIn("\n- keep it brief", seed)
         self.assertIn("\n- ask first", seed)
-        self.assertIn('hermes desktop-inbox done "✅ Taxes · Nov 10"', seed)
+        self.assertIn("run `hermes desktop-inbox done` (no argument", seed)
+        self.assertNotIn('done "', seed)
+
+    def test_title_character_set(self):
+        for ok in ("Backup", "Review acme/app #7", "Sökkva: notes (Nov)", "50% done - check it"):
+            self.assertEqual(core.check_name(ok), ok)
+        for bad in ('x"; rm -rf ~', "$(whoami)", "`id`", "a\\b", "a|b", "a<b>", "", "x" * 121):
+            with self.assertRaises(SystemExit):
+                core.check_name(bad)
 
     def test_seed_without_style(self):
         with with_settings():
@@ -195,17 +203,23 @@ class WebhookTests(unittest.TestCase):
                              "base": {"ref": "main"}, "head": {"ref": "fix"}},
         }).encode()
 
+    @staticmethod
+    def sign(body, secret=b"s3cret"):
+        return "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+
     def test_review_request_files_a_do_item(self):
-        with with_settings(github_login="ada", user_name="Ada"), mock.patch.object(settings, "secret", return_value=""):
-            code, data = webhook.handle_github(self.review_event(), "", "pull_request")
+        body = self.review_event()
+        with with_settings(github_login="ada", user_name="Ada"), mock.patch.object(settings, "secret", return_value="s3cret"):
+            code, data = webhook.handle_github(body, self.sign(body), "pull_request")
         self.assertEqual(code, 200)
         self.assertEqual(data["title"], "do:Review acme/app #7")
         core.create_item.assert_called_once()
         self.assertIn("Ada was asked to review", core.create_item.call_args.kwargs["reply_notes"])
 
     def test_review_for_someone_else_is_ignored(self):
-        with with_settings(github_login="ada"), mock.patch.object(settings, "secret", return_value=""):
-            code, data = webhook.handle_github(self.review_event("carol"), "", "pull_request")
+        body = self.review_event("carol")
+        with with_settings(github_login="ada"), mock.patch.object(settings, "secret", return_value="s3cret"):
+            code, data = webhook.handle_github(body, self.sign(body), "pull_request")
         self.assertEqual(code, 200)
         self.assertIn("ignored", data)
         core.create_item.assert_not_called()
@@ -217,9 +231,16 @@ class WebhookTests(unittest.TestCase):
             self.assertEqual(webhook.handle_github(body, "sha256=bad", "pull_request")[0], 403)
             self.assertEqual(webhook.handle_github(body, good, "pull_request")[0], 200)
 
+    def test_github_without_secret_is_refused(self):
+        body = self.review_event()
+        with with_settings(github_login="ada"), mock.patch.object(settings, "secret", return_value=""):
+            self.assertEqual(webhook.handle_github(body, self.sign(body), "pull_request")[0], 403)
+        core.create_item.assert_not_called()
+
     def test_ping(self):
-        with with_settings(), mock.patch.object(settings, "secret", return_value=""):
-            self.assertEqual(webhook.handle_github(b'{"zen": "hi"}', "", "ping"), (200, {"ok": True, "ignored": "ping"}))
+        body = b'{"zen": "hi"}'
+        with with_settings(), mock.patch.object(settings, "secret", return_value="s3cret"):
+            self.assertEqual(webhook.handle_github(body, self.sign(body), "ping"), (200, {"ok": True, "ignored": "ping"}))
 
     def test_generic_item_token_type_and_dedup(self):
         with with_settings(), mock.patch.object(settings, "secret", return_value="tok"):
@@ -230,6 +251,37 @@ class WebhookTests(unittest.TestCase):
             code, first = webhook.handle_item({"title": "x"}, b"hello", "tok")
             self.assertEqual((code, first["title"]), (200, "do:x"))
             self.assertEqual(webhook.handle_item({"title": "x"}, b"hello", "tok")[1], {"ok": True, "duplicate": True})
+
+    def test_item_without_token_is_refused(self):
+        with with_settings(), mock.patch.object(settings, "secret", return_value=""):
+            self.assertEqual(webhook.handle_item({"title": "x"}, b"hello", "")[0], 403)
+        core.create_item.assert_not_called()
+
+    def test_listener_needs_a_credential(self):
+        with with_settings(webhook_enabled=True), mock.patch.object(settings, "secret", return_value=""):
+            got = webhook.status()
+        self.assertEqual((got["ok"], got["running"]), (False, False))
+
+    def test_browser_posts_are_refused(self):
+        import threading
+        import urllib.error
+        import urllib.request
+        with with_settings(), mock.patch.object(settings, "secret", return_value="tok"):
+            srv = webhook.ThreadingHTTPServer(("127.0.0.1", 0), webhook.Handler)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            try:
+                url = f"http://127.0.0.1:{srv.server_address[1]}/item?title=x"
+                req = urllib.request.Request(url, data=b"hello", method="POST",
+                                             headers={"Authorization": "Bearer tok", "Origin": "https://evil.example"})
+                with self.assertRaises(urllib.error.HTTPError) as err:
+                    urllib.request.urlopen(req, timeout=5)
+                self.assertEqual(err.exception.code, 403)
+                req = urllib.request.Request(url, data=b"hello", method="POST", headers={"Authorization": "Bearer tok"})
+                with urllib.request.urlopen(req, timeout=5) as res:
+                    self.assertEqual(res.status, 200)
+            finally:
+                srv.shutdown()
+                srv.server_close()
 
     def test_disabled_webhook_does_not_start(self):
         with with_settings(webhook_enabled=False):
