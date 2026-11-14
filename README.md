@@ -259,6 +259,10 @@ Desktop copies `desktop/plugin.js` when the window reloads. Backend changes to
 `desktop_inbox/` apply on the next pane poll. Changes to `dashboard/plugin_api.py` need a
 gateway restart.
 
+## Docs
+
+The [code wiki](docs/wiki/README.md) documents the architecture, modules and APIs.
+
 ## Credits
 
 The inbox model (settle, snooze, auto-settle, "every thread you open, you close") is inspired by

@@ -1,0 +1,8 @@
+{
+  "repo_name": "hermes-desktop-inbox",
+  "source_path": ".",
+  "source_sha": "ffae81ff54784ec45b12ed185095d348aa7d1f02",
+  "generated_at": "2026-11-14T13:45:18Z",
+  "generator": "hermes-agent code-wiki skill v0.2.0",
+  "modules_documented": ["plugin-entry", "core", "settings", "webhook", "dashboard", "desktop", "skill"]
+}
